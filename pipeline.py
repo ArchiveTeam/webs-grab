@@ -52,7 +52,7 @@ if not WGET_AT:
 VERSION = '20210220.01'
 USER_AGENT = 'Archive Team'
 TRACKER_ID = 'webs'
-TRACKER_HOST = 'trackerproxy.archiveteam.org'
+TRACKER_HOST = 'legacy-api.arpa.li'
 MULTI_ITEM_SIZE = 1 # KEEP 1
 KEEP_WARC_ON_ABORT = False
 
