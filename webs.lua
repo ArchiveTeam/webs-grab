@@ -58,7 +58,7 @@ read_file = function(file)
 end
 
 allowed = function(url, parenturl)
-  if string.match(urlparse.unescape(url), "[<>\\%*%$%^%[%],%(%){}]") then
+  if string.find(url, "{imageSize}") then
     return false
   end
 
@@ -85,7 +85,19 @@ allowed = function(url, parenturl)
     or string.match(url, "^https?://thumbs%.webs%.com/")
     or string.match(url, "^https?://images%.webs%.com/")
     or string.match(url, "^https?://thumbs%.freewebs%.com/")
-    or string.match(url, "^https?://images%.freewebs%.com/") then
+    or string.match(url, "^https?://images%.freewebs%.com/")
+    or string.match(url, "^https?://memberfiles%.freewebs%.com/")
+    or string.match(url, "^https?://webzoom%.freewebs%.com/")
+    or string.match(url, "^https?://[^/]*youtube%.com/embed/") then
+    return true
+  end
+
+  -- extra for freewebs.com to not miss anything
+  if string.match(url, "^https?://[^/]+%.freewebs%.com/") then
+    if parenturl
+      and string.match(parenturl, "^https?://[^/]+%.freewebs%.com/") then
+      return false
+    end
     return true
   end
 
@@ -93,6 +105,20 @@ allowed = function(url, parenturl)
     if ids[s] then
       return true
     end
+  end
+
+  if string.find(url, "{imageSize}") then
+    return false
+  end
+
+  if parenturl
+    and (
+      string.match(parenturl, "%.jpg$")
+      or string.match(parenturl, "%.png$")
+      or string.match(parenturl, "%.gif$")
+      or string.match(parenturl, "%.mp3$")
+    ) then
+    return false
   end
 
   local id = string.match(url, "^https?://([^/]+)%.webs%.com")
@@ -117,11 +143,13 @@ wget.callbacks.download_child_p = function(urlpos, parent, depth, start_url_pars
   local url = urlpos["url"]["url"]
   local parenturl = parent["url"]
 
+  url = string.gsub(url, ";jsessionid=[0-9A-F]+", "")
+
   if downloaded[url] or addedtolist[url] then
     return false
   end
 
-  if allowed(url) then
+  if allowed(url) or urlpos["link_expect_html"] == 0 then
     addedtolist[url] = true
     return true
   end
@@ -130,6 +158,10 @@ end
 wget.callbacks.get_urls = function(file, url, is_css, iri)
   local urls = {}
   local html = nil
+
+  if is_css then
+    return urls
+  end
   
   downloaded[url] = true
 
@@ -138,6 +170,7 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
     local url = string.match(urla, "^([^#]+)")
     local url_ = string.match(url, "^(.-)%.?$")
     url_ = string.gsub(url_, "&amp;", "&")
+    url_ = string.gsub(url_, ";jsessionid=[0-9A-F]+", "")
     url_ = string.match(url_, "^(.-)%s*$")
     url_ = string.match(url_, "^(.-)%??$")
     url_ = string.match(url_, "^(.-)&?$")
@@ -152,6 +185,13 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
   end
 
   local function checknewurl(newurl)
+    if string.match(newurl, "^/>")
+      or string.match(newurl, "^/&gt;")
+      or string.match(newurl, "^/<")
+      or string.match(newurl, "^/&lt;")
+      or string.match(newurl, "^/%*") then
+      return false
+    end
     if string.match(newurl, "\\[uU]002[fF]") then
       return checknewurl(string.gsub(newurl, "\\[uU]002[fF]", "/"))
     end
@@ -194,6 +234,25 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
     end
   end
 
+  local match = string.match(url, "^https?://[^/]+/.-(https?://.+)$")
+  if match then
+    check(match)
+  end
+
+  match = string.match(url, "^https?://[^/]*websimages%.com/fit/[^/]+/(.+)$")
+  if not match then
+    match = string.match(url, "^https?://[^/]*websimages%.com/thumb/[0-9]+/(.+)$")
+  end
+  if not match then
+    match = string.match(url, "^https?://[^/]*websimages%.com/width/[0-9]+/crop/[^/]+/(.+)$")
+  end
+  if match then
+    if not string.match(match, "^https?://") then
+      match = "https://" .. match
+    end
+    check(match)
+  end
+
   if allowed(url, nil) and status_code == 200
     and not string.match(url, "^https?://[^/]*websimages%.com/")
     and not string.match(url, "^https?://thumbs%.webs%.com/")
@@ -201,6 +260,16 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
     and not string.match(url, "^https?://thumbs%.freewebs%.com/")
     and not string.match(url, "^https?://images%.freewebs%.com/") then
     html = read_file(file)
+    for file_id in string.gmatch(html, '"fileId"%s*:%s*([0-9]+)') do
+      check("https://thumbs.webs.com/Members/viewThumb.jsp?siteId=" .. item_value .. "&fileID=" .. file_id)
+      check("https://thumbs.webs.com/Members/viewThumb.jsp?siteId=" .. item_value .. "&fileID=" .. file_id .. "&size=square")
+      check("https://thumbs.webs.com/Members/viewThumb.jsp?siteId=" .. item_value .. "&fileID=" .. file_id .. "&size=thumb")
+      check("https://thumbs.webs.com/Members/viewThumb.jsp?siteId=" .. item_value .. "&fileID=" .. file_id .. "&size=full")
+      check("https://thumbs.webs.com/Members/viewThumb.jsp?siteId=" .. item_value .. "&fileID=" .. file_id .. "&size=normal")
+      check("https://thumbs.webs.com/Members/viewThumb.jsp?siteId=" .. item_value .. "&fileID=" .. file_id .. "&size=large")
+      check("https://thumbs.webs.com/Members/viewThumb.jsp?siteId=" .. item_value .. "&fileID=" .. file_id .. "&size=large&angle=0")
+      check("https://profiles.members.webs.com/Members/viewThumb.jsp?fileID=" .. file_id)
+    end
     if string.match(url, "^https?://profiles%.members%.webs%.com/Profile/index%.jsp%?userID=[0-9]+$") then
       local protocol, location = string.match(html, "document%.location='(https?://)([^']-)/?';")
       if not location then
@@ -239,6 +308,7 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
         check(protocol .. location .. "/")
         check(protocol .. location .. "/robots.txt")
         check(protocol .. location .. "/sitemap.xml")
+        check("https://members.webs.com/s/signup/checkUsername?username=" .. id)
         check("https://freewebs.com/" .. id)
         check("http://profiles.members.webs.com/Members/viewProfileImage.jsp?userID=" .. item_value)
       end
@@ -307,8 +377,7 @@ wget.callbacks.httploop_result = function(url, err, http_stat)
 
   if status_code >= 300 and status_code <= 399 then
     local newloc = urlparse.absolute(url["url"], http_stat["newloc"])
-    if downloaded[newloc] or addedtolist[newloc]
-      or not allowed(newloc, url["url"]) then
+    if downloaded[newloc] or addedtolist[newloc] then
       tries = 0
       return wget.actions.EXIT
     end
@@ -329,15 +398,20 @@ wget.callbacks.httploop_result = function(url, err, http_stat)
     io.stdout:write("Server returned " .. http_stat.statcode .. " (" .. err .. "). Sleeping.\n")
     io.stdout:flush()
     local maxtries = 1
-    if not allowed(url["url"], nil) then
-      maxtries = 3
-    end
     if tries >= maxtries then
       io.stdout:write("I give up...\n")
       io.stdout:flush()
       tries = 0
+      if not allowed(url["url"], nil) then
+        return wget.actions.EXIT
+      end
       if string.match(url["url"], "^https?://static%.websimages%.com/")
         or string.match(url["url"], "^https?://dynamic%.websimages%.com/") then
+        return wget.actions.EXIT
+      end
+      local match = string.match(url["url"], "^https?://([^/]+)%.freewebs%.com")
+      if match and match ~= "images" and match ~= "thumbs"
+        and match ~= "webzoom" and match ~= "memberfiles" then
         return wget.actions.EXIT
       end
       abort_item()
