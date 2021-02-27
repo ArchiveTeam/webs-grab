@@ -58,7 +58,8 @@ read_file = function(file)
 end
 
 allowed = function(url, parenturl)
-  if string.find(url, "{imageSize}") then
+  if string.find(url, "{imageSize}")
+    or string.match(url, "/apps/auth/login") then
     return false
   end
 
@@ -75,8 +76,11 @@ allowed = function(url, parenturl)
 
   local cal_id = string.match(url, "[%?&]calID=([0-9]+)")
   if cal_id then
-    local cal_year = string.match(url, "[%?&]year=([0-9]+)")
-    if cal_year and tonumber(cal_year) < 2000 then
+    if string.match(url, "[%?&]day=[0-9]+") then
+      return false
+    end
+    local cal_year = tonumber(string.match(url, "[%?&]year=([0-9]+)"))
+    if cal_year and (cal_year < 2000 or cal_year > 2021) then
       return false
     end
   end
@@ -88,7 +92,8 @@ allowed = function(url, parenturl)
     or string.match(url, "^https?://images%.freewebs%.com/")
     or string.match(url, "^https?://memberfiles%.freewebs%.com/")
     or string.match(url, "^https?://webzoom%.freewebs%.com/")
-    or string.match(url, "^https?://[^/]*youtube%.com/embed/") then
+    or string.match(url, "^https?://[^/]*youtube%.com/embed/")
+    or string.match(url, "^https?://thum%.io/get/") then
     return true
   end
 
@@ -117,6 +122,8 @@ allowed = function(url, parenturl)
       or string.match(parenturl, "%.png$")
       or string.match(parenturl, "%.gif$")
       or string.match(parenturl, "%.mp3$")
+      or string.match(parenturl, "%.pdf$")
+      or string.match(parenturl, "%.mp4$")
     ) then
     return false
   end
@@ -142,7 +149,8 @@ end
 wget.callbacks.download_child_p = function(urlpos, parent, depth, start_url_parsed, iri, verdict, reason)
   local url = urlpos["url"]["url"]
   local parenturl = parent["url"]
-
+io.stdout:write(url)
+io.stdout:flush()
   url = string.gsub(url, ";jsessionid=[0-9A-F]+", "")
 
   if downloaded[url] or addedtolist[url] then
@@ -178,6 +186,7 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
     url_ = string.match(url_, "^(.-)\\?$")
     if (downloaded[url_] ~= true and addedtolist[url_] ~= true)
       and allowed(url_, origurl) then
+--print(url_)
       table.insert(urls, { url=url_ })
       addedtolist[url_] = true
       addedtolist[url] = true
@@ -230,16 +239,19 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
       or string.match(newurl, "^android%-app:")
       or string.match(newurl, "^ios%-app:")
       or string.match(newurl, "^%${")) then
-      check(urlparse.absolute(url, "/" .. newurl))
+      check(urlparse.absolute(url, newurl))
     end
   end
 
-  local match = string.match(url, "^https?://[^/]+/.-(https?://.+)$")
-  if match then
-    check(match)
+  local a, b, c = string.match(url, "^(https?://[^/]+/.-)(https?://)(.+)$")
+  if a and b and c then
+    check(a .. c)
+    check(b .. c)
+print(a .. c)
+print(b .. c)
   end
 
-  match = string.match(url, "^https?://[^/]*websimages%.com/fit/[^/]+/(.+)$")
+  local match = string.match(url, "^https?://[^/]*websimages%.com/fit/[^/]+/(.+)$")
   if not match then
     match = string.match(url, "^https?://[^/]*websimages%.com/thumb/[0-9]+/(.+)$")
   end
@@ -260,7 +272,11 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
     and not string.match(url, "^https?://thumbs%.freewebs%.com/")
     and not string.match(url, "^https?://images%.freewebs%.com/") then
     html = read_file(file)
-    for file_id in string.gmatch(html, '"fileId"%s*:%s*([0-9]+)') do
+    local match = string.match(html, 'data%-image%-url="([^"]+)"')
+    if match then
+      check("https://imageprocessor.websimages.com/fit/425x425/" .. match)
+    end
+    for file_id in string.gmatch(html, 'file[iI][dD]"?%s*[:%-=]%s*([0-9]+)') do
       check("https://thumbs.webs.com/Members/viewThumb.jsp?siteId=" .. item_value .. "&fileID=" .. file_id)
       check("https://thumbs.webs.com/Members/viewThumb.jsp?siteId=" .. item_value .. "&fileID=" .. file_id .. "&size=square")
       check("https://thumbs.webs.com/Members/viewThumb.jsp?siteId=" .. item_value .. "&fileID=" .. file_id .. "&size=thumb")
@@ -328,7 +344,7 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
     for newurl in string.gmatch(html, '[^%-]href="([^"]+)"') do
       checknewshorturl(newurl)
     end
-    for newurl in string.gmatch(html, ":%s*url%(([^%)]+)%)") do
+    for newurl in string.gmatch(html, ':%s*url%(([^%)"]+)%)') do
       checknewurl(newurl)
     end
   end
@@ -440,40 +456,6 @@ wget.callbacks.finish = function(start_time, end_time, wall_time, numurls, total
     file:write(url .. "\n")
   end
   file:close()
-  --[[local backfeed = {
-    ["urls-d1lq8a6j0mjp0mm"]=outlinks,
-    ["pr0gramm-khuc2vakmx1ftyz"]=discovered
-  }
-  for key, data in pairs(backfeed) do
-    local items = nil
-    for item, _ in pairs(data) do
-      print('found item', item)
-      if items == nil then
-        items = item
-      else
-        items = items .. "\0" .. item
-      end
-    end
-    if items ~= nil then
-      local tries = 0
-      while tries < 10 do
-        local body, code, headers, status = http.request(
-          "http://blackbird-amqp.meo.ws:23038/" .. key .. "/",
-          items
-        )
-        if code == 200 or code == 409 then
-          break
-        end
-        io.stdout:write("Could not queue new items.\n")
-        io.stdout:flush()
-        os.execute("sleep " .. math.floor(math.pow(2, tries)))
-        tries = tries + 1
-      end
-      if tries == 10 then
-        abortgrab = true
-      end
-    end
-  end]]
 end
 
 wget.callbacks.before_exit = function(exit_status, exit_status_string)

@@ -49,7 +49,7 @@ if not WGET_AT:
 #
 # Update this each time you make a non-cosmetic change.
 # It will be added to the WARC files and reported to the tracker.
-VERSION = '20210226.02'
+VERSION = '20210227.01'
 USER_AGENT = 'Archive Team'
 TRACKER_ID = 'webs'
 TRACKER_HOST = 'legacy-api.arpa.li'
@@ -203,7 +203,6 @@ class WgetArgs(object):
             '-e', 'robots=off',
             '--rotate-dns',
             '--recursive', '--level=inf',
-            '--no-parent',
             '--page-requisites',
             '--timeout', '30',
             '--tries', 'inf',
