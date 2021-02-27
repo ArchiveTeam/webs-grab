@@ -318,9 +318,9 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
         return urls
       end
       local id = string.match(location, "^(.+)%.webs%.com$")
-      if not id then
-        id = string.match(location, "^(.+)%.vpweb%.com$")
-      end
+--      if not id then
+--        id = string.match(location, "^(.+)%.vpweb%.com$")
+--      end
       if id then
         ids[id] = true
       else
