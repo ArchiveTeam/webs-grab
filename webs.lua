@@ -112,10 +112,6 @@ allowed = function(url, parenturl)
     end
   end
 
-  if string.find(url, "{imageSize}") then
-    return false
-  end
-
   if parenturl
     and (
       string.match(parenturl, "%.jpg$")
@@ -125,6 +121,16 @@ allowed = function(url, parenturl)
       or string.match(parenturl, "%.pdf$")
       or string.match(parenturl, "%.mp4$")
     ) then
+    return false
+  end
+
+  for s in string.gmatch(url, "([a-zA-Z0-9]+)") do
+    if ids[s] then
+      return true
+    end
+  end
+
+  if string.find(url, "{imageSize}") then
     return false
   end
 
@@ -149,8 +155,7 @@ end
 wget.callbacks.download_child_p = function(urlpos, parent, depth, start_url_parsed, iri, verdict, reason)
   local url = urlpos["url"]["url"]
   local parenturl = parent["url"]
-io.stdout:write(url)
-io.stdout:flush()
+
   url = string.gsub(url, ";jsessionid=[0-9A-F]+", "")
 
   if downloaded[url] or addedtolist[url] then
@@ -186,7 +191,6 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
     url_ = string.match(url_, "^(.-)\\?$")
     if (downloaded[url_] ~= true and addedtolist[url_] ~= true)
       and allowed(url_, origurl) then
---print(url_)
       table.insert(urls, { url=url_ })
       addedtolist[url_] = true
       addedtolist[url] = true
@@ -247,8 +251,6 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
   if a and b and c then
     check(a .. c)
     check(b .. c)
-print(a .. c)
-print(b .. c)
   end
 
   local match = string.match(url, "^https?://[^/]*websimages%.com/fit/[^/]+/(.+)$")
@@ -270,11 +272,21 @@ print(b .. c)
     and not string.match(url, "^https?://thumbs%.webs%.com/")
     and not string.match(url, "^https?://images%.webs%.com/")
     and not string.match(url, "^https?://thumbs%.freewebs%.com/")
-    and not string.match(url, "^https?://images%.freewebs%.com/") then
+    and not string.match(url, "^https?://images%.freewebs%.com/")
+    and not string.match(url, "^https?://[^%.]+%.cloudfront%.net/") then
     html = read_file(file)
     local match = string.match(html, 'data%-image%-url="([^"]+)"')
     if match then
       check("https://imageprocessor.websimages.com/fit/425x425/" .. match)
+    end
+    match = string.match(url, "^https?://s%.vid%.ly/embeded%.html.+link=([a-zA-Z0-9]+)")
+    if match then
+      check("https://vid.ly/" .. match)
+      check("https://vid.ly/" .. match .. "/embed")
+    end
+    match = string.match(html, "vid%.ly/embeded%.html.+link=([a-zA-Z0-9]+)")
+    if match then
+      ids[match] = true
     end
     for file_id in string.gmatch(html, 'file[iI][dD]"?%s*[:%-=]%s*([0-9]+)') do
       check("https://thumbs.webs.com/Members/viewThumb.jsp?siteId=" .. item_value .. "&fileID=" .. file_id)
