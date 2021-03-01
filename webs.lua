@@ -15,6 +15,7 @@ local tries = 0
 local downloaded = {}
 local addedtolist = {}
 local abortgrab = false
+local exitgrab = false
 local exit_url = false
 
 local outlinks = {}
@@ -34,15 +35,15 @@ for ignore in io.open("ignore-list", "r"):lines() do
   downloaded[ignore] = true
 end
 
-abort_item = function(item)
-  abortgrab = true
-  if not item then
-    item = item_name
+abort_item = function(abort)
+  if abort then
+    abortgrab = true
   end
-  if not bad_items[item] then
-    io.stdout:write("Aborting item " .. item .. ".\n")
+  exitgrab = true
+  if not bad_items[item_name] then
+    io.stdout:write("Aborting item " .. item_name .. ".\n")
     io.stdout:flush()
-    bad_items[item] = true
+    bad_items[item_name] = true
   end
 end
 
@@ -275,6 +276,14 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
     and not string.match(url, "^https?://images%.freewebs%.com/")
     and not string.match(url, "^https?://[^%.]+%.cloudfront%.net/") then
     html = read_file(file)
+    if string.match(url, "/robots%.txt$") then
+      for line in string.gmatch(html, "([^\n]+)") do
+        newurl = string.match(line, "^[^:]+: (.+)$")
+        if newurl then
+          checknewurl(newurl)
+        end
+      end
+    end
     local match = string.match(html, 'data%-image%-url="([^"]+)"')
     if match then
       check("https://imageprocessor.websimages.com/fit/425x425/" .. match)
@@ -333,6 +342,7 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
       id = string.match(location, "^([^%.]+)")
       if id then
         ids[id] = true
+        check(protocol .. location .. "/apps/members/")
         check(protocol .. location .. "/")
         check(protocol .. location .. "/robots.txt")
         check(protocol .. location .. "/sitemap.xml")
@@ -364,22 +374,12 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
   return urls
 end
 
---[[wget.callbacks.write_to_warc = function(url, http_stat)
-  if http_stat["statcode"] ~= 200 then
-    exit_url = true
-    abort_item()
-    return false
-  end
-  return true
-end]]
-
-wget.callbacks.httploop_result = function(url, err, http_stat)
-  status_code = http_stat["statcode"]
-
-  local match = string.match(url["url"], "^https?://profiles%.members%.webs%.com/Profile/index%.jsp%?userID=([0-9]+)$")
+set_new_item = function(url)
+  local match = string.match(url, "^https?://profiles%.members%.webs%.com/Profile/index%.jsp%?userID=([0-9]+)$")
   local type_ = "site"
-  if match then
+  if match and not ids[match] then
     abortgrab = false
+    exitgrab = false
     ids[match] = true
     item_value = match
     item_type = type_
@@ -387,20 +387,49 @@ wget.callbacks.httploop_result = function(url, err, http_stat)
     io.stdout:write("Archiving item " .. item_name .. ".\n")
     io.stdout:flush()
   end
+end
+
+wget.callbacks.write_to_warc = function(url, http_stat)
+  set_new_item(url["url"])
+  if http_stat["statcode"] == 410
+    and (
+      string.match(url["url"], "^https?://[^%.]+%.webs%.com/$")
+      or string.match(url["url"], "^https?://[^%.]+%.webs%.com/robots%.txt$")
+      or string.match(url["url"], "^https?://[^%.]+%.webs%.com/sitemap%.xml$")
+    ) then
+    abort_item()
+  end
+  if exitgrab then
+    io.stdout:write("Not writing WARC record.\n")
+    io.stdout:flush()
+    return false
+  end
+  return true
+end
+
+wget.callbacks.httploop_result = function(url, err, http_stat)
+  status_code = http_stat["statcode"]
+
+  if abortgrab then
+    abort_item(true)
+    return wget.actions.ABORT
+    --return wget.actions.EXIT
+  end
+
+  set_new_item(url["url"])
   
   url_count = url_count + 1
   io.stdout:write(url_count .. "=" .. status_code .. " " .. url["url"] .. "  \n")
   io.stdout:flush()
 
-  if exit_url then
-    exit_url = false
+  if exitgrab then
     return wget.actions.EXIT
   end
 
   if string.match(url["url"], "^https?://[^/]+/?$") and status_code >= 400 then
     io.stdout:write("Got bad status code on website front page.\n")
     io.stdout:flush()
-    abort_item()
+    abort_item(true)
   end
 
   if status_code >= 300 and status_code <= 399 then
@@ -415,10 +444,9 @@ wget.callbacks.httploop_result = function(url, err, http_stat)
     downloaded[url["url"]] = true
   end
 
-  if abortgrab then
-    abort_item()
-    return wget.actions.ABORT
-    --return wget.actions.EXIT
+  if status_code == 400
+    and string.match(url["url"], "^https?://mediaprocessor%.websimages%.com/") then
+    return wget.actions.EXIT
   end
 
   if status_code == 0
@@ -442,7 +470,7 @@ wget.callbacks.httploop_result = function(url, err, http_stat)
         and match ~= "webzoom" and match ~= "memberfiles" then
         return wget.actions.EXIT
       end
-      abort_item()
+      abort_item(true)
       return wget.actions.ABORT
     else
       os.execute("sleep " .. math.floor(math.pow(2, tries)))
