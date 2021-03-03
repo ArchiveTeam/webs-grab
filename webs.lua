@@ -60,7 +60,14 @@ end
 
 allowed = function(url, parenturl)
   if string.find(url, "{imageSize}")
-    or string.match(url, "/apps/auth/login") then
+    or string.match(url, "/apps/auth/login")
+    or not (
+      string.match(url, "^https?://[^/]*webs[^/]+/")
+      or string.match(url, "^https?://[^/]*thum%.io/")
+      or string.match(url, "^https?://[^/]*vpweb[^/]+/")
+      or string.match(url, "^https?://[^/]*cloudfront%.net/")
+      or string.match(url, "^https?://[^/]*vid%.ly/")
+    ) then
     return false
   end
 
@@ -93,13 +100,13 @@ allowed = function(url, parenturl)
     or string.match(url, "^https?://images%.freewebs%.com/")
     or string.match(url, "^https?://memberfiles%.freewebs%.com/")
     or string.match(url, "^https?://webzoom%.freewebs%.com/")
-    or string.match(url, "^https?://[^/]*youtube%.com/embed/")
     or string.match(url, "^https?://thum%.io/get/") then
     return true
   end
 
   -- extra for freewebs.com to not miss anything
-  if string.match(url, "^https?://[^/]+%.freewebs%.com/") then
+  if string.match(url, "^https?://[^/]+%.freewebs%.com/")
+    and not string.match(url, "^https?://www%.") then
     if parenturl
       and string.match(parenturl, "^https?://[^/]+%.freewebs%.com/") then
       return false
@@ -115,12 +122,12 @@ allowed = function(url, parenturl)
 
   if parenturl
     and (
-      string.match(parenturl, "%.jpg$")
-      or string.match(parenturl, "%.png$")
-      or string.match(parenturl, "%.gif$")
-      or string.match(parenturl, "%.mp3$")
-      or string.match(parenturl, "%.pdf$")
-      or string.match(parenturl, "%.mp4$")
+      string.match(parenturl, "%.[jJ][pP][gG]$")
+      or string.match(parenturl, "%.[pP][nN][gG]$")
+      or string.match(parenturl, "%.[gG][iI][fF]$")
+      or string.match(parenturl, "%.[mM][pP]3$")
+      or string.match(parenturl, "%.[pP][dD][fF]$")
+      or string.match(parenturl, "%.[mM][pP]4$")
     ) then
     return false
   end
@@ -450,7 +457,7 @@ wget.callbacks.httploop_result = function(url, err, http_stat)
   end
 
   if status_code == 0
-    or (status_code >= 400 and status_code ~= 404) then
+    or (status_code > 400 and status_code ~= 404) then
     io.stdout:write("Server returned " .. http_stat.statcode .. " (" .. err .. "). Sleeping.\n")
     io.stdout:flush()
     local maxtries = 1
