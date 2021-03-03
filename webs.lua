@@ -61,6 +61,7 @@ end
 allowed = function(url, parenturl)
   if string.find(url, "{imageSize}")
     or string.match(url, "/apps/auth/login")
+    or string.match(url, "/apps/auth/signup")
     or string.match(url, "^https?://dynamic%.websimages%.com/s/themes/[0-9a-f]+/v[0-9]+%.[0-9]+$")
     or not (
       string.match(url, "^https?://[^/]*webs[^/]+/")
