@@ -52,11 +52,11 @@ if not WGET_AT:
 #
 # Update this each time you make a non-cosmetic change.
 # It will be added to the WARC files and reported to the tracker.
-VERSION = '20210303.03'
+VERSION = '20210307.01'
 USER_AGENT = 'Archive Team'
 TRACKER_ID = 'webs'
 TRACKER_HOST = 'legacy-api.arpa.li'
-MULTI_ITEM_SIZE = 100
+MULTI_ITEM_SIZE = 50
 KEEP_WARC_ON_ABORT = False
 
 
