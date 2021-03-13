@@ -63,6 +63,7 @@ allowed = function(url, parenturl)
     or string.match(url, "/apps/auth/login")
     or string.match(url, "/apps/auth/signup")
     or string.match(url, "^https?://dynamic%.websimages%.com/s/themes/[0-9a-f]+/v[0-9]+%.[0-9]+$")
+    or string.match(url, "/showEvent.*[%?&]next=")
     or not (
       string.match(url, "^https?://[^/]*webs[^/]+/")
       or string.match(url, "^https?://[^/]*thum%.io/")
@@ -193,7 +194,10 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
     local url = string.match(urla, "^([^#]+)")
     local url_ = string.match(url, "^(.-)%.?$")
     url_ = string.gsub(url_, "&amp;", "&")
-    url_ = string.gsub(url_, ";jsessionid=[0-9A-F]+", "")
+    local match = string.match(url_, "^(.+/showEvent.*[%?&])next=[^%?&]+[%?&]?")
+    if match then
+      url_ = match
+    end
     url_ = string.match(url_, "^(.-)%s*$")
     url_ = string.match(url_, "^(.-)%??$")
     url_ = string.match(url_, "^(.-)&?$")
