@@ -194,6 +194,7 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
     local url = string.match(urla, "^([^#]+)")
     local url_ = string.match(url, "^(.-)%.?$")
     url_ = string.gsub(url_, "&amp;", "&")
+    url_ = string.gsub(url_, ";jsessionid=[0-9A-F]+", "")
     local match = string.match(url_, "^(.+/showEvent.*[%?&])next=[^%?&]+[%?&]?")
     if match then
       url_ = match
