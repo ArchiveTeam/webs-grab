@@ -70,6 +70,9 @@ allowed = function(url, parenturl)
       or string.match(url, "^https?://[^/]*vpweb[^/]+/")
       or string.match(url, "^https?://[^/]*cloudfront%.net/")
       or string.match(url, "^https?://[^/]*vid%.ly/")
+      or string.match(url, "^https?://[^/]*vistaprint[^/]+/")
+      or string.match(url, "^https?://[^/]*cimpress%.io/")
+      or ids[string.match(url, "^https?://([^/]+)")]
     ) then
     return false
   end
@@ -97,13 +100,15 @@ allowed = function(url, parenturl)
   end
 
   if string.match(url, "^https?://[^/]*websimages%.com/")
+    or string.match(url, "^https?://[^/]*digital%.vistaprint%.com/")
     or string.match(url, "^https?://thumbs%.webs%.com/")
     or string.match(url, "^https?://images%.webs%.com/")
     or string.match(url, "^https?://thumbs%.freewebs%.com/")
     or string.match(url, "^https?://images%.freewebs%.com/")
     or string.match(url, "^https?://memberfiles%.freewebs%.com/")
     or string.match(url, "^https?://webzoom%.freewebs%.com/")
-    or string.match(url, "^https?://thum%.io/get/") then
+    or string.match(url, "^https?://thum%.io/get/")
+    or string.match(url, "^https?://[^/]*cimpress%.io/") then
     return true
   end
 
@@ -131,6 +136,8 @@ allowed = function(url, parenturl)
       or string.match(parenturl, "%.[mM][pP]3$")
       or string.match(parenturl, "%.[pP][dD][fF]$")
       or string.match(parenturl, "%.[mM][pP]4$")
+      or string.match(parenturl, "%.[zZ][iI][pP]$")
+      or string.match(parenturl, "%.[pP][dD][fF]$")
     ) then
     return false
   end
@@ -262,6 +269,14 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
     end
   end
 
+  local function checkfind(s)
+    if s ~= "members" and s ~= "thumbs" and s ~= "images" and s ~= "www" then
+      io.stdout:write("Found " .. s .. ".\n")
+      ids[s] = true
+      check("https://" .. s .. ".webs.com/")
+    end
+  end
+
   local a, b, c = string.match(url, "^(https?://[^/]+/.-)(https?://)(.+)$")
   if a and b and c then
     check(a .. c)
@@ -284,12 +299,28 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
 
   if allowed(url, nil) and status_code == 200
     and not string.match(url, "^https?://[^/]*websimages%.com/")
+    and not string.match(url, "^https?://[^/]*digital%.vistaprint%.com/")
     and not string.match(url, "^https?://thumbs%.webs%.com/")
     and not string.match(url, "^https?://images%.webs%.com/")
     and not string.match(url, "^https?://thumbs%.freewebs%.com/")
     and not string.match(url, "^https?://images%.freewebs%.com/")
-    and not string.match(url, "^https?://[^%.]+%.cloudfront%.net/") then
+    and not string.match(url, "^https?://[^%.]+%.cloudfront%.net/")
+    and not string.match(url, "^https?://[^/]*cimpress%.io/") then
     html = read_file(file)
+    if not string.match(url, "^https?://[^/]*webs%.com")
+      and not string.match(url, "^https?://[^/]*vpweb%.com")
+      and string.match(url, "^https?://[^/]+/?$") then
+      if not string.find(html, "webs.stats") then
+        abort_item(true)
+      end
+      for s in string.gmatch(html, "([a-zA-Z0-9%-_]+)%.webs%.com") do
+        checkfind(s)
+      end
+      for s in string.gmatch(html, "([a-zA-Z0-9%-_]+)%.vpweb%.com") do
+        checkfind(s)
+      end
+      io.stdout:flush()
+    end
     if string.match(url, "/robots%.txt$") then
       for line in string.gmatch(html, "([^\n]+)") do
         newurl = string.match(line, "^[^:]+: (.+)$")
@@ -341,27 +372,29 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
         return urls
       end
       local id = string.match(location, "^(.+)%.webs%.com$")
---      if not id then
---        id = string.match(location, "^(.+)%.vpweb%.com$")
---      end
+      if not id then
+        id = string.match(location, "^(.+)%.vpweb%.com$")
+      end
       if id then
         ids[id] = true
       else
-        io.stdout:write("No custom domains yet.\n")
-        io.stdout:flush()
-        abort_item()
-        return {}
-        --ids[location] = true
+        print('setting', location)
+        ids[location] = true
+        local match = string.match(location, "^www%.(.+)$")
+        if match then
+          print('setting', match)
+          ids[match] = true
+        end
       end
-      id = string.match(location, "^([^%.]+)")
       if id then
-        ids[id] = true
         check(protocol .. location .. "/apps/members/")
         check(protocol .. location .. "/")
         check(protocol .. location .. "/robots.txt")
         check(protocol .. location .. "/sitemap.xml")
-        check("https://members.webs.com/s/signup/checkUsername?username=" .. id)
-        check("https://freewebs.com/" .. id)
+        if id then
+          check("https://members.webs.com/s/signup/checkUsername?username=" .. id)
+          check("https://freewebs.com/" .. id)
+        end
         check("http://profiles.members.webs.com/Members/viewProfileImage.jsp?userID=" .. item_value)
       end
     end
