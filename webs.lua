@@ -474,11 +474,32 @@ wget.callbacks.httploop_result = function(url, err, http_stat)
   end
 
   if string.match(url["url"], "^https?://[^/]+/?$") and status_code >= 400 then
-    io.stdout:write("Got bad status code on website front page.\n")
-    io.stdout:flush()
-    abort_item(true)
+    if status_code == 404 then
+      io.stdout:write("Got 404 status code on website front page. Website likely removed\n")
+      io.stdout:flush()
+      removed_site = true
+      local tries = 0
+        while tries < 10 do
+          local body, code, headers, status = http.request(
+            "http://blackbird.arpa.li:23038/webs404-k3s9p6kdrv4q556x/",
+            item_name
+          )
+          if code == 200 or code == 409 then
+            break
+          end
+          os.execute("sleep " .. math.floor(math.pow(2, tries)))
+          tries = tries + 1
+        end
+        if tries == 10 then
+          abortgrab = true
+        end
+      return wget.actions.EXIT
+    else
+      io.stdout:write("Got bad status code on website front page.\n")
+      io.stdout:flush()
+      abort_item(true)
+    end
   end
-
   if status_code >= 300 and status_code <= 399 then
     local newloc = urlparse.absolute(url["url"], http_stat["newloc"])
     if downloaded[newloc] or addedtolist[newloc] then
@@ -500,6 +521,9 @@ wget.callbacks.httploop_result = function(url, err, http_stat)
     or (status_code > 400 and status_code ~= 404) then
     io.stdout:write("Server returned " .. http_stat.statcode .. " (" .. err .. "). Sleeping.\n")
     io.stdout:flush()
+    if removed_site == true then
+      return wget.actions.EXIT
+    end
     local maxtries = 1
     if tries >= maxtries then
       io.stdout:write("I give up...\n")
