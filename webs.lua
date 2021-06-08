@@ -475,6 +475,9 @@ wget.callbacks.httploop_result = function(url, err, http_stat)
 
   if string.match(url["url"], "^https?://[^/]+/?$") and status_code >= 400 then
     if status_code == 404 then
+      -- okay so if this occurs it is USUALLY the fact website doesnt exist/has been deleted. 
+	  -- This is fine and IF it somehow catches this not on the home page, it will still grab anything it can.
+	  -- The item then gets yeeted into webs:prio:404:todo for EggplantN/others to validate later if they wish
       io.stdout:write("Got 404 status code on website front page. Website likely removed\n")
       io.stdout:flush()
       removed_site = true
@@ -524,6 +527,60 @@ wget.callbacks.httploop_result = function(url, err, http_stat)
     if removed_site == true then
       return wget.actions.EXIT
     end
+	-- okay so if this occurs it is USUALLY the fact DNS doesnt exist for that domain. 
+	-- This is fine and IF it somehow catches this not on the home page, it will still grab anything it can.
+	-- The item then gets yeeted into webs:prio:nxdomain:todo for EggplantN/others to validate later
+	-- yes there is repetition of the backfeed code, i'm not well versed with LUA enough to willingly try it
+	-- Example item site:133428883 -> 92ddef45-532f-4bcf-ae97-1fed4719201e.vpweb.co.uk 
+	-- Example item site:138749897 -> 166d0727-96bb-434f-afc2-c8db387a47d7.vpweb.dk
+	-- Example item site:136141949 -> www.ilbossdelpollo.com
+	if status_code == 0 and err == "HOSTERR" then
+	  io.stdout:write("Got 0 status code on website front page. With HOSTERR, likely DNS record has been removed\n")
+      io.stdout:flush()
+      removed_site = true
+      local tries = 0
+        while tries < 10 do
+          local body, code, headers, status = http.request(
+            "http://blackbird.arpa.li:23038/websnxdomain-z964z6wt9fcqsh5m/",
+            item_name
+          )
+          if code == 200 or code == 409 then
+            break
+          end
+          os.execute("sleep " .. math.floor(math.pow(2, tries)))
+          tries = tries + 1
+        end
+        if tries == 10 then
+          abortgrab = true
+        end
+      return wget.actions.EXIT
+	end
+	--[[ THIS IS NOT READY YET, FURTHER TESTING REQUIRED
+	-- okay so if this occurs it is USUALLY the fact DNS doesnt exist for that domain. 
+	-- This is fine and IF it somehow catches this not on the home page, it will still grab anything it can.
+	-- The item then gets yeeted into webs:prio:connerr:todo for EggplantN/others to validate later
+	--
+	if status_code == 0 and err == "CONNIMPOSSIBLE" then
+	  io.stdout:write("Got 0 status code on website front page. With CONNIMPOSSIBLE, likely web server not responding via HTTPS or at all\n")
+      io.stdout:flush()
+      removed_site = true
+      local tries = 0
+        while tries < 10 do
+          local body, code, headers, status = http.request(
+            "http://blackbird.arpa.li:23038//",
+            item_name
+          )
+          if code == 200 or code == 409 then
+            break
+          end
+          os.execute("sleep " .. math.floor(math.pow(2, tries)))
+          tries = tries + 1
+        end
+        if tries == 10 then
+          abortgrab = true
+        end
+      return wget.actions.EXIT
+	end --]]
     local maxtries = 1
     if tries >= maxtries then
       io.stdout:write("I give up...\n")
