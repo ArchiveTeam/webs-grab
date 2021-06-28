@@ -310,9 +310,9 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
     if not string.match(url, "^https?://[^/]*webs%.com")
       and not string.match(url, "^https?://[^/]*vpweb%.com")
       and string.match(url, "^https?://[^/]+/?$") then
-      if not string.find(html, "webs.stats") then
+      --[[if not string.find(html, "webs.stats") then
         abort_item(true)
-      end
+      end]]
       for s in string.gmatch(html, "([a-zA-Z0-9%-_]+)%.webs%.com") do
         checkfind(s)
       end
@@ -357,13 +357,13 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
       if not location then
         io.stdout:write("Could not find location.\n")
         io.stdout:flush()
-        abort_item()
+        --abort_item()
         return {}
       end
       if string.find(location, "/") then
         io.stdout:write("Location is not a domain.\n")
         io.stdout:flush()
-        abort_item()
+        --abort_item()
         return {}
       end
       if location == "webs.com" or location == "www.webs.com" then
@@ -444,7 +444,7 @@ wget.callbacks.write_to_warc = function(url, http_stat)
       or string.match(url["url"], "^https?://[^%.]+%.webs%.com/robots%.txt$")
       or string.match(url["url"], "^https?://[^%.]+%.webs%.com/sitemap%.xml$")
     ) then
-    abort_item()
+    --abort_item()
   end
   if exitgrab then
     io.stdout:write("Not writing WARC record.\n")
@@ -482,25 +482,26 @@ wget.callbacks.httploop_result = function(url, err, http_stat)
       io.stdout:flush()
       removed_site = true
       local tries = 0
-        while tries < 10 do
-          local body, code, headers, status = http.request(
-            "http://blackbird.arpa.li:23038/webs404-k3s9p6kdrv4q556x/",
-            item_name
-          )
-          if code == 200 or code == 409 then
-            break
-          end
-          os.execute("sleep " .. math.floor(math.pow(2, tries)))
-          tries = tries + 1
+      while tries < 10 do
+        local body, code, headers, status = http.request(
+          "http://blackbird.arpa.li:23038/webs404-k3s9p6kdrv4q556x/",
+          item_name
+        )
+        if code == 200 or code == 409 then
+          break
         end
-        if tries == 10 then
-          abortgrab = true
-        end
+        os.execute("sleep " .. math.floor(math.pow(2, tries)))
+        tries = tries + 1
+      end
+      --[[if tries == 10 then
+        abortgrab = true
+      end]]
       return wget.actions.EXIT
     else
       io.stdout:write("Got bad status code on website front page.\n")
       io.stdout:flush()
-      abort_item(true)
+      return wget.actions.EXIT
+      --abort_item(true)
     end
   end
   if status_code >= 300 and status_code <= 399 then
@@ -539,20 +540,20 @@ wget.callbacks.httploop_result = function(url, err, http_stat)
       io.stdout:flush()
       removed_site = true
       local tries = 0
-        while tries < 10 do
-          local body, code, headers, status = http.request(
-            "http://blackbird.arpa.li:23038/websnxdomain-z964z6wt9fcqsh5m/",
-            item_name
-          )
-          if code == 200 or code == 409 then
-            break
-          end
-          os.execute("sleep " .. math.floor(math.pow(2, tries)))
-          tries = tries + 1
+      while tries < 10 do
+        local body, code, headers, status = http.request(
+          "http://blackbird.arpa.li:23038/websnxdomain-z964z6wt9fcqsh5m/",
+          item_name
+        )
+        if code == 200 or code == 409 then
+          break
         end
-        if tries == 10 then
-          abortgrab = true
-        end
+        os.execute("sleep " .. math.floor(math.pow(2, tries)))
+        tries = tries + 1
+      end
+      --[[if tries == 10 then
+        abortgrab = true
+      end]]
       return wget.actions.EXIT
 	end
 	--[[ THIS IS NOT READY YET, FURTHER TESTING REQUIRED
@@ -598,8 +599,9 @@ wget.callbacks.httploop_result = function(url, err, http_stat)
         and match ~= "webzoom" and match ~= "memberfiles" then
         return wget.actions.EXIT
       end
-      abort_item(true)
-      return wget.actions.ABORT
+      --abort_item(true)
+      --return wget.actions.ABORT
+      return wget.actions.EXIT
     else
       os.execute("sleep " .. math.floor(math.pow(2, tries)))
       tries = tries + 1
