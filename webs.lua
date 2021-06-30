@@ -484,7 +484,6 @@ wget.callbacks.httploop_result = function(url, err, http_stat)
 	  -- The item then gets yeeted into webs:prio:404:todo for EggplantN/others to validate later if they wish
       io.stdout:write("Got 404 status code on website front page. Website likely removed\n")
       io.stdout:flush()
-      removed_site = true
       local tries = 0
       while tries < 10 do
         local body, code, headers, status = http.request(
@@ -529,9 +528,6 @@ wget.callbacks.httploop_result = function(url, err, http_stat)
     or (status_code > 400 and status_code ~= 404) then
     io.stdout:write("Server returned " .. http_stat.statcode .. " (" .. err .. "). Sleeping.\n")
     io.stdout:flush()
-    if removed_site == true then
-      return wget.actions.EXIT
-    end
 	-- okay so if this occurs it is USUALLY the fact DNS doesnt exist for that domain. 
 	-- This is fine and IF it somehow catches this not on the home page, it will still grab anything it can.
 	-- The item then gets yeeted into webs:prio:nxdomain:todo for EggplantN/others to validate later
@@ -542,7 +538,6 @@ wget.callbacks.httploop_result = function(url, err, http_stat)
 	if status_code == 0 and err == "HOSTERR" then
 	  io.stdout:write("Got 0 status code on website front page. With HOSTERR, likely DNS record has been removed\n")
       io.stdout:flush()
-      removed_site = true
       local tries = 0
       while tries < 10 do
         local body, code, headers, status = http.request(
@@ -568,7 +563,6 @@ wget.callbacks.httploop_result = function(url, err, http_stat)
 	if status_code == 0 and err == "CONNIMPOSSIBLE" then
 	  io.stdout:write("Got 0 status code on website front page. With CONNIMPOSSIBLE, likely web server not responding via HTTPS or at all\n")
       io.stdout:flush()
-      removed_site = true
       local tries = 0
         while tries < 10 do
           local body, code, headers, status = http.request(
