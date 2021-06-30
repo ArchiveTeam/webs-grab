@@ -310,9 +310,9 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
     if not string.match(url, "^https?://[^/]*webs%.com")
       and not string.match(url, "^https?://[^/]*vpweb%.com")
       and string.match(url, "^https?://[^/]+/?$") then
-      --[[if not string.find(html, "webs.stats") then
-        abort_item(true)
-      end]]
+      if not string.find(html, "webs.stats") then
+        return urls
+      end
       for s in string.gmatch(html, "([a-zA-Z0-9%-_]+)%.webs%.com") do
         checkfind(s)
       end
@@ -468,6 +468,10 @@ wget.callbacks.httploop_result = function(url, err, http_stat)
   url_count = url_count + 1
   io.stdout:write(url_count .. "=" .. status_code .. " " .. url["url"] .. "  \n")
   io.stdout:flush()
+
+  --[[if url_count > 100000 then
+    return wget.actions.EXIT
+  end]]
 
   if exitgrab then
     return wget.actions.EXIT
